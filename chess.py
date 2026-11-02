@@ -58,22 +58,6 @@ class piece:
                 possible.append((self.pos[0] + 1, self.pos[1] - 1))
             if self.pos[1] == 6:
                 possible.append((self.pos[0],self.pos[1] - 2))
-        if self.type == "br" or self.type == "wr":
-            for i in range(8):
-                if i != self.pos[1]:
-                    possible.append((self.pos[0],i))
-                if i != self.pos[0]:
-                    possible.append((i,self.pos[1]))
-        if self.type == "bb" or self.type == "wb":
-            for x in range(8):
-                if x != self.pos[0]:
-                    y = abs(self.pos[0] - x)
-                    ya = self.pos[1] - y
-                    yb = self.pos[1] + y
-                    if ya >= 0:
-                        possible.append((x,ya))
-                    if yb <= 7:
-                        possible.append((x,yb))
         if self.type == "bn" or self.type == "wn":
             x = self.pos[0]
             y = self.pos[1]
@@ -93,21 +77,6 @@ class piece:
                 possible.append((x+2,y+1))
             if x + 1 <= 7 and y + 2 <=7:
                 possible.append((x+1,y+2))
-        if self.type == "bq" or self.type == "wq":
-            for i in range(8):
-                if i != self.pos[1]:
-                    possible.append((self.pos[0],i))
-                if i != self.pos[0]:
-                    possible.append((i,self.pos[1]))
-            for x in range(8):
-                if x != self.pos[0]:
-                    y = abs(self.pos[0] - x)
-                    ya = self.pos[1] - y
-                    yb = self.pos[1] + y
-                    if ya >= 0:
-                        possible.append((x,ya))
-                    if yb <= 7:
-                        possible.append((x,yb))
         if self.type == "bk" or self.type == "wk":
             x = self.pos[0]
             y = self.pos[1]
@@ -134,6 +103,8 @@ class piece:
 class board1:
     def __init__(self):
         self.board = []
+        self.turn1 = "w"
+        self.inCheck = False
         for i in range(8):
             l = []
             for i in range(8):
@@ -170,42 +141,129 @@ class board1:
             pass
         else:
             moves = self.board[square[1]][square[0]].possibleMoves()
+            moves2 = moves[:]
             pt = self.board[square[1]][square[0]].type
             pp = self.board[square[1]][square[0]].pos
-            if pt[1] == "r":
-                closestx1 = 100
-                closestx2 = 100
-                for i in range(8):
-                    if not (self.board[pp[1]][i] is None):
-                        if i < pp[0]:
-                            if (pp[0] - i) < closestx1:
-                                closestx1 = pp[0] - i
-                                
-                        if i > pp[0]:
-                            if (i - pp[0]) < closestx2:
-                                closestx2 = i - pp[0]
-                for i in moves:
-                    if i[0] < pp[0]:
-                        if (pp[0] - i[0]) > closestx1:
-                            moves.remove(i)
-                    elif i[0] > pp[0]:
-                        if (i[0] - pp[0]) > closestx2:
-                            moves.remove(i)
-                    else:
-                        print("r1")
-                        if not (self.board[i[1]][i[0]] is None):
-                            print(self.board[i[1]][i[0]].type[0])
-                            print(i)
-                            if self.board[i[0]][i[1]].type[0] == pt[0]:
-                                print("r3")
+            stop = False
+            if pt[1] == "p":
+                for i in moves2:
+                    if i[0] == pp[0]:
+                        if i[1] == pp[1] + 1 or i[1] == pp[1] - 1:
+                            if not(self.board[i[1]][i[0]] is None):
+                                stop = True
                                 moves.remove(i)
+                        else:
+                            if not(self.board[i[1]][i[0]] is None) or stop:
+                                moves.remove(i)
+                    else:
+                        if not(self.board[i[1]][i[0]] is None):
+                            if self.board[i[1]][i[0]].type[0] == pt[0]:
+                                moves.remove(i)
+                        else:
+                            moves.remove(i) 
+            if pt[1] == "n" or pt[1] == "k":
+                for i in moves2:
+                    if not(self.board[i[1]][i[0]] is None):
+                        if self.board[i[1]][i[0]].type[0] == pt[0]:
+                            moves.remove(i)
+            if pt[1] == "b" or pt[1] == "q":
+                directions = [(1, 1), (1, -1), (-1, 1), (-1, -1)]
+                for dx, dy in directions:
+                    x = pp[0] + dx
+                    y = pp[1] + dy
+                    while 0 <= x < 8 and 0 <= y < 8:
+                        target = self.board[y][x]
 
+                        if target is None:
+                            moves.append((x, y))
+                        else:
+                            if target.type[0] != pt[0]:
+                                moves.append((x, y))
+                            break
+                        x += dx
+                        y += dy
+            if pt[1] == "r" or pt[1] == "q":
+                directions = [(1, 0), (-1, 0), (0, 1), (0, -1)]
+                for dx, dy in directions:
+                    x = pp[0] + dx
+                    y = pp[1] + dy
+                    while 0 <= x < 8 and 0 <= y < 8:
+                        target = self.board[y][x]
 
+                        if target is None:
+                            moves.append((x, y))
+                        else:
+                            if target.type[0] != pt[0]:
+                                moves.append((x, y))
+                            break
+                        x += dx
+                        y += dy
         return moves
-    def move(self,square1, square2):
-            self.board[square2[1]][square2[0]] = self.board[square1[1]][square1[0]]
-            self.board[square1[1]][square1[0]] = None
-            self.board[square2[1]][square2[0]].pos = (square2[0],square2[1])
+    
+    def move(self, square1, square2):
+        x1, y1 = square1
+        x2, y2 = square2
+
+        selected = self.board[y1][x1]
+        if selected is None:
+            return False
+        if selected.type[0] != self.turn1:
+            return False
+        if square2 not in self.legalMoves(square1):
+            return False
+        
+        captured = self.board[y2][x2]
+        self.board[y2][x2] = selected
+        self.board[y1][x1] = None
+        selected.pos = (x2, y2)
+
+        c = self.check()
+        if c:
+            self.board[y1][x1] = selected
+            selected.pos = (x1,y1)
+            self.board[y2][x2] = captured
+            return False
+
+        if self.turn1 == "b":
+            self.turn1 = "w"
+        else:
+            self.turn1 = "b"
+
+        c = self.check()
+        if c:
+            if self.turn1 == "b":
+                print("Blck is in Check")
+            else:
+                print("White is in Check")
+        self.inCheck = c
+
+        return True
+    
+    def check(self):
+        kingPos = None
+        for i in self.board:
+            for j in i:
+                if not(j is None):
+                    if j.type[1] == "k" and j.type[0] == self.turn1:
+                        kingPos = j.pos
+                        break
+            if kingPos is not None:
+                break
+
+        enemy = "b"
+        if self.turn1 == "b":
+            enemy = "w"
+
+        for i in self.board:
+            for j in i:
+                if j is not None:
+                    if j.type[0] == enemy:
+                        if kingPos in self.legalMoves(j.pos):
+                            return True
+        return False
+        
+
+
     
 pygame.init()
 screen = pygame.display.set_mode((800, 800))
@@ -217,14 +275,29 @@ pieces = pieceMap()
 square = None
 prev = None
 while running:
+    wrongPiece = False
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
-        if event.type == pygame.MOUSEBUTTONDOWN:
-            if event.button == 1:
-                mouse_pos = pygame.mouse.get_pos()
-                prev = square
-                square = (mouse_pos[0]//100,mouse_pos[1]//100)
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            mouse_pos = pygame.mouse.get_pos()
+            clicked = (mouse_pos[0] // 100, mouse_pos[1] // 100)
+
+            if square is None:
+                selected_piece = board.board[clicked[1]][clicked[0]]
+
+                if selected_piece is not None:
+                    if selected_piece.type[0] == board.turn1:
+                        square = clicked
+            else:
+                if board.move(square, clicked):
+                    square = None
+                else:
+                    selected_piece = board.board[clicked[1]][clicked[0]]
+
+                    if selected_piece is not None:
+                        if selected_piece.type[0] == board.turn1:
+                            square = clicked
 
     screen.fill("black")    
     grid()
@@ -234,7 +307,11 @@ while running:
         if board.board[square[1]][square[0]] is None:
             draw(square[0],square[1],(100,100,100))
         else:
-            draw(square[0],square[1],(100,200,100))
+            if board.board[square[1]][square[0]].type[0] == board.turn1:
+                draw(square[0],square[1],(100,200,100))
+            else:
+                draw(square[0],square[1],(100,100,100))
+                
     for i in board.board:
         for j in i:
             if j is None:
@@ -242,21 +319,13 @@ while running:
             else:
                 screen.blit(pieces[j.type], (j.pos[0] * 100, j.pos[1] * 100))
 
-
-    if not(square is None):
-        if not(prev is None):
-            if square in board.legalMoves(prev):
-                board.move(prev,square)
-                square = None
-                prev = None
-
-
     if square is None:
         pass
     else:
-        spaces = board.legalMoves(square)
-        for i in spaces:
-            pygame.draw.circle(screen, (150,150,150),(i[0] * 100 + 50, i[1] * 100 + 50), 25)
+        if wrongPiece == False:
+            spaces = board.legalMoves(square)
+            for i in spaces:
+                pygame.draw.circle(screen, (150,150,150),(i[0] * 100 + 50, i[1] * 100 + 50), 25)
     pygame.display.flip()
     clock.tick(60) 
 
